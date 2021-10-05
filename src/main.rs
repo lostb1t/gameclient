@@ -43,6 +43,15 @@ pub const APPLICATION_JSON: &str = "application/json";
 //         .json("succes")
 // }
 
+pub fn run_command(mut cmd: Command) -> std::process::Output {
+    log::info!("Executing command: {:?}", cmd);
+    let output = cmd.output().expect("failed to execute process");
+    match output.status.success() {
+        true => log::info!("stdout: {}", String::from_utf8_lossy(&output.stdout)),
+        false => log::error!("stderr: {}", String::from_utf8_lossy(&output.stderr)),
+    };
+    output
+}
 
 #[get("/setmode/{name}")]
 pub async fn setmode(path: web::Path<String>, data: web::Data<AppState>) -> HttpResponse {
@@ -69,7 +78,7 @@ pub async fn setmode(path: web::Path<String>, data: web::Data<AppState>) -> Http
         .args(&[
             "/C",
             format!(
-                "MultiMonitorTool.exe /TurnOn {turn_on} /SetPrimary {primary} /TurnOff {turn_off} /MoveWindow {primary} All",
+                "MultiMonitorTool.exe /TurnOn {turn_on} & MultiMonitorTool.exe /SetPrimary {primary} & MultiMonitorTool.exe /TurnOff {turn_off} & MultiMonitorTool.exe /MoveWindow {primary} All",
                 primary = config.primary,
                 turn_on = config
                     .turn_on
@@ -77,7 +86,7 @@ pub async fn setmode(path: web::Path<String>, data: web::Data<AppState>) -> Http
                     .map(|x| x.to_string())
                     .collect::<Vec<_>>()
                     .join(" "),
-                    turn_off = config
+                turn_off = config
                     .turn_off
                     .iter()
                     .map(|x| x.to_string())
@@ -86,15 +95,36 @@ pub async fn setmode(path: web::Path<String>, data: web::Data<AppState>) -> Http
             )
             .as_str(),
         ]);
-    log::info!("Executing command: {:?}", cmd);
-    let output = cmd
-        .output()
-        .expect("failed to execute process");
+    run_command(cmd);
 
-    match output.status.success() {
-        true => log::info!("stdout: {}", String::from_utf8_lossy(&output.stdout)),
-        false => log::error!("stderr: {}", String::from_utf8_lossy(&output.stderr)),
+    if config.start_big_picture {
+        let mut cmd = Command::new("cmd");
+        cmd.current_dir(&current_dir).args(&[
+            "/C",
+            "/Volumes/Untitled/Program Files (x86)/Steam/steam.exe -bigpicture",
+        ]);
+
+        run_command(cmd);
     }
+
+    if config.stop_big_picture {
+        let mut cmd = Command::new("cmd");
+        cmd.current_dir(&current_dir).args(&[
+            "/C",
+            "taskkill.exe /F /IM steam.exe",
+        ]);
+
+        run_command(cmd);
+    }
+    // log::info!("Executing command: {:?}", cmd);
+    // let output = cmd
+    //     .output()
+    //     .expect("failed to execute process");
+
+    // match output.status.success() {
+    //     true => log::info!("stdout: {}", String::from_utf8_lossy(&output.stdout)),
+    //     false => log::error!("stderr: {}", String::from_utf8_lossy(&output.stderr)),
+    // }
 
     HttpResponse::Ok()
         .content_type(APPLICATION_JSON)
@@ -107,6 +137,8 @@ struct Config {
     turn_on: Vec<i32>,
     turn_off: Vec<i32>,
     primary: i64,
+    start_big_picture: bool,
+    stop_big_picture: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -119,21 +151,28 @@ async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "info,actix_web=debug,actix_server=info");
     env_logger::init();
 
+    // 1: LG monitpr
+    // 2: LG TV
+    // 3: Phhilips monitor
     HttpServer::new(|| {
         App::new()
             .data(AppState {
                 configs: vec![
                     Config {
                         name: String::from("tv"),
-                        turn_on: vec![3],
-                        turn_off: vec![1, 2],
-                        primary: 3,
+                        turn_on: vec![2],
+                        turn_off: vec![1, 3],
+                        primary: 2,
+                        start_big_picture: true,
+                        stop_big_picture: false,
                     },
                     Config {
                         name: String::from("office"),
-                        turn_on: vec![1, 2],
+                        turn_on: vec![1, 3],
                         turn_off: vec![],
                         primary: 1,
+                        start_big_picture: false,
+                        stop_big_picture: true,
                     },
                 ],
             })
