@@ -53,6 +53,16 @@ pub fn run_command(mut cmd: Command) -> std::process::Output {
     output
 }
 
+pub fn kill_steam() {
+    let mut cmd = Command::new("cmd");
+    cmd.args(&[
+        "/C",
+        "taskkill.exe /F /IM steam.exe",
+    ]);
+
+    run_command(cmd);    
+}
+
 #[get("/setmode/{name}")]
 pub async fn setmode(path: web::Path<String>, data: web::Data<AppState>) -> HttpResponse {
     // if cfg!(not(target_os = "windows")) {
@@ -78,7 +88,7 @@ pub async fn setmode(path: web::Path<String>, data: web::Data<AppState>) -> Http
         .args(&[
             "/C",
             format!(
-                "MultiMonitorTool.exe /TurnOn {turn_on} & MultiMonitorTool.exe /SetPrimary {primary} & MultiMonitorTool.exe /TurnOff {turn_off} & MultiMonitorTool.exe /MoveWindow {primary} All",
+                "MultiMonitorTool.exe /TurnOn {turn_on} & MultiMonitorTool.exe /SetPrimary {primary} & MultiMonitorTool.exe /MoveWindow Primary All & MultiMonitorTool.exe /TurnOff {turn_off}",
                 primary = config.primary,
                 turn_on = config
                     .turn_on
@@ -98,24 +108,20 @@ pub async fn setmode(path: web::Path<String>, data: web::Data<AppState>) -> Http
     run_command(cmd);
 
     if config.start_big_picture {
+        kill_steam();
         let mut cmd = Command::new("cmd");
         cmd.current_dir(&current_dir).args(&[
             "/C",
-            "/Volumes/Untitled/Program Files (x86)/Steam/steam.exe -bigpicture",
+            "\"C:\\Program Files (x86)\\Steam\\steam.exe -bigpicture\"",
         ]);
 
         run_command(cmd);
     }
 
     if config.stop_big_picture {
-        let mut cmd = Command::new("cmd");
-        cmd.current_dir(&current_dir).args(&[
-            "/C",
-            "taskkill.exe /F /IM steam.exe",
-        ]);
-
-        run_command(cmd);
+        kill_steam();
     }
+
     // log::info!("Executing command: {:?}", cmd);
     // let output = cmd
     //     .output()
