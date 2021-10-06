@@ -53,6 +53,12 @@ pub fn run_command(mut cmd: Command) -> std::process::Output {
     output
 }
 
+pub fn spawn_command(mut cmd: Command) -> std::process::Child {
+    log::info!("Executing command: {:?}", cmd);
+    cmd.spawn().expect("failed to execute process")
+}
+
+
 pub fn kill_steam() {
     let mut cmd = Command::new("cmd");
     cmd.args(&[
@@ -108,14 +114,13 @@ pub async fn setmode(path: web::Path<String>, data: web::Data<AppState>) -> Http
     run_command(cmd);
 
     if config.start_big_picture {
-        kill_steam();
-        let mut cmd = Command::new("cmd");
-        cmd.current_dir(&current_dir).args(&[
-            "/C",
-            "\"C:\\Program Files (x86)\\Steam\\steam.exe -bigpicture\"",
+        //kill_steam();
+        let mut cmd = Command::new(r#"C:\Program Files (x86)\Steam\steam.exe"#);
+        cmd.args(&[
+            "-start", "steam://open/bigpicture"
         ]);
-
-        run_command(cmd);
+        spawn_command(cmd);
+        //log::info!("spawned");
     }
 
     if config.stop_big_picture {
@@ -175,7 +180,7 @@ async fn main() -> std::io::Result<()> {
                     Config {
                         name: String::from("office"),
                         turn_on: vec![1, 3],
-                        turn_off: vec![],
+                        turn_off: vec![0], // fake turnoff
                         primary: 1,
                         start_big_picture: false,
                         stop_big_picture: true,
